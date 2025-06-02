@@ -1,0 +1,30 @@
+llm:
+  provider: "huggingface"
+  config:
+    model_name: "gpt2"
+    device: "cpu"
+    torch_dtype: "float32" 
+    max_new_tokens: 40
+    temperature: 0.3  # Lower temp for more focused responses
+    do_sample: false  # Deterministic for better instruction following
+    context_window: 1024
+
+kubernetes:
+  namespace: "default"
+
+istio:
+  namespace: "istio-system"
+
+tools:
+  enabled:
+    - kubectl
+    - istio_proxy
+    - istio_config
+    - logs
+
+logging:
+  level: "DEBUG"
+
+agent:
+  max_iterations: 10
+  conversation_memory: 5

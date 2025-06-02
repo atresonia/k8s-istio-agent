@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8s-istio-agent
+  namespace: troubleshooting
+  labels:
+    app: k8s-istio-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: k8s-istio-agent
+  template:
+    metadata:
+      labels:
+        app: k8s-istio-agent
+        version: v1
+      annotations:
+        sidecar.istio.io/inject: "true"
+    spec:
+      serviceAccountName: k8s-istio-agent
+      containers:
+      - name: agent
+        image: k8s-istio-agent:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: LLM_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: llm-credentials
+              key: api-key
+        - name: PROMETHEUS_URL
+          value: "http://prometheus.istio-system:9090"
+        - name: ISTIO_NAMESPACE
+          value: "istio-system"
+        - name: LOG_LEVEL
+          value: "INFO"
+        volumeMounts:
+        - name: config
+          mountPath: /app/config
+          readOnly: true
+        - name: kubeconfig
+          mountPath: /app/.kube
+          readOnly: true
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
+      volumes:
+      - name: config
+        configMap:
+          name: agent-config
+      - name: kubeconfig
+        secret:
+          secretName: kubeconfig
+          optional: true
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+      - key: "kubernetes.io/arch"
+        operator: "Equal"
+        value: "amd64"
+        effect: "NoSchedule"

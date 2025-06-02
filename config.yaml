@@ -1,0 +1,75 @@
+# Configuration for K8s Istio Agent
+
+llm:
+  # Options: openai, huggingface, azure, internal
+  provider: "huggingface"
+  config:
+    # OpenAI Configuration
+    # api_key: "${OPENAI_API_KEY}"
+    # model: "gpt-4"
+    # base_url: "https://api.openai.com/v1"
+    
+    # HuggingFace Configuration
+    model_name: "microsoft/DialoGPT-medium"  # or "microsoft/CodeBERT-base" for code
+    device: "auto"  # auto, cpu, cuda
+    torch_dtype: "auto"  # auto, float16, float32
+    load_in_8bit: false
+    load_in_4bit: false
+    max_length: 2048
+    temperature: 0.7
+    do_sample: true
+    
+    # Azure OpenAI Configuration
+    # api_key: "${AZURE_OPENAI_API_KEY}"
+    # azure_endpoint: "https://your-resource.openai.azure.com/"
+    # api_version: "2023-12-01-preview"
+    # model: "gpt-4"
+    
+    # Internal Provider Configuration
+    # endpoint: "https://internal-llm.company.com"
+    # api_key: "${INTERNAL_API_KEY}"
+    # model: "internal-gpt-4"
+
+kubernetes:
+  # Leave empty to use default kubeconfig
+  config_file: ""
+  context: ""
+  namespace: "default"
+
+istio:
+  namespace: "istio-system"
+  config_namespace: "istio-config"
+
+tools:
+  enabled:
+    - kubectl
+    - istio
+    - prometheus
+    - logs
+  
+  kubectl:
+    safe_commands:
+      - get
+      - describe
+      - logs
+      - top
+      - explain
+      - version
+      - api-resources
+    
+  prometheus:
+    endpoint: "http://prometheus.istio-system:9090"
+    
+logging:
+  level: "INFO"
+  format: "json"  # json or text
+  file: ""  # empty for stdout
+
+web:
+  host: "0.0.0.0"
+  port: 8080
+  debug: false
+
+agent:
+  max_iterations: 5
+  conversation_memory: 10  # number of messages to keep in memory

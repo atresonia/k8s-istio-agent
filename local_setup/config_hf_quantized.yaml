@@ -1,0 +1,24 @@
+agent:
+  conversation_memory: 10
+  max_iterations: 5
+istio:
+  namespace: istio-system
+kubernetes:
+  namespace: default
+llm:
+  config:
+    device: auto
+    do_sample: true
+    load_in_8bit: true
+    max_length: 1024
+    model_name: microsoft/DialoGPT-medium
+    temperature: 0.7
+    torch_dtype: auto
+  provider: huggingface
+logging:
+  level: INFO
+tools:
+  enabled:
+  - kubectl
+  - istio
+  - logs

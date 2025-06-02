@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>K8s & Istio Troubleshooting Agent</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .chat-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .chat-messages {
+            height: 500px;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 12px 16px;
+            border-radius: 10px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+
+        .user-message {
+            background: #007bff;
+            color: white;
+            margin-left: auto;
+            text-align: right;
+        }
+
+        .agent-message {
+            background: white;
+            border: 1px solid #ddd;
+            margin-right: auto;
+        }
+
+        .agent-message pre {
+            background: #f1f3f4;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            overflow-x: auto;
+            font-size: 0.9rem;
+        }
+
+        .typing-indicator {
+            background: #e9ecef;
+            border: 1px solid #ddd;
+            margin-right: auto;
+            font-style: italic;
+            opacity: 0.7;
+        }
+
+        .input-container {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #ddd;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .namespace-input {
+            flex: 0 0 150px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .query-input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            min-height: 60px;
+            resize: vertical;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+
+        .status {
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .examples {
+            margin-top: 20px;
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+            color: white;
+        }
+
+        .examples h3 {
+            margin-bottom: 15px;
+        }
+
+        .example-query {
+            background: rgba(255,255,255,0.1);
+            padding: 8px 12px;
+            margin: 5px 0;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .example-query:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .input-group {
+                flex-direction: column;
+            }
+            
+            .namespace-input {
+                flex: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔧 K8s & Istio Troubleshooting Agent</h1>
+            <p>AI-powered troubleshooting for your Kubernetes and service mesh infrastructure</p>
+        </div>
+
+        <div class="chat-container">
+            <div class="chat-header">
+                <h2>💬 Chat with the Agent</h2>
+                <div id="status" class="status disconnected">Connecting...</div>
+            </div>
+
+            <div id="messages" class="chat-messages">
+                <div class="message agent-message">
+                    <strong>🤖 Agent:</strong> Hello! I'm here to help you troubleshoot Kubernetes and Istio issues. 
+                    Describe your problem and I'll investigate using kubectl, Istio tools, and monitoring data.
+                </div>
+            </div>
+
+            <div class="input-container">
+                <div class="input-group">
+                    <input type="text" id="namespace" class="namespace-input" placeholder="Namespace" value="default">
+                    <textarea id="queryInput" class="query-input" 
+                             placeholder="Describe your issue... (e.g., 'My pods are not starting in the frontend namespace')"></textarea>
+                </div>
+                <div class="button-group">
+                    <button id="sendBtn" class="btn btn-primary">Send Query</button>
+                    <button id="resetBtn" class="btn btn-secondary">Reset Chat</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="examples">
+            <h3>💡 Example Queries</h3>
+            <div class="example-query" onclick="setQuery('My pods are not starting')">
+                "My pods are not starting"
+            </div>
+            <div class="example-query" onclick="setQuery('Service connectivity issues between microservices')">
+                "Service connectivity issues between microservices"
+            </div>
+            <div class="example-query" onclick="setQuery('Istio proxy shows configuration errors')">
+                "Istio proxy shows configuration errors"
+            </div>
+            <div class="example-query" onclick="setQuery('High memory usage on worker nodes')">
+                "High memory usage on worker nodes"
+            </div>
+            <div class="example-query" onclick="setQuery('Check if all services are running properly')">
+                "Check if all services are running properly"
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        const messages = document.getElementById('messages');
+        const queryInput = document.getElementById('queryInput');
+        const namespaceInput = document.getElementById('namespace');
+        const sendBtn = document.getElementById('sendBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const status = document.getElementById('status');
+
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = function() {
+                status.textContent = 'Connected';
+                status.className = 'status connected';
+                sendBtn.disabled = false;
+            };
+
+            ws.onclose = function() {
+                status.textContent = 'Disconnected';
+                status.className = 'status disconnected';
+                sendBtn.disabled = true;
+                
+                // Attempt to reconnect after 3 seconds
+                setTimeout(connectWebSocket, 3000);
+            };
+
+            ws.onerror = function() {
+                status.textContent = 'Connection Error';
+                status.className = 'status disconnected';
+                sendBtn.disabled = true;
+            };
+
+            ws.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                
+                if (data.type === 'response') {
+                    removeTypingIndicator();
+                    addMessage('agent', data.response);
+                } else if (data.type === 'error') {
+                    removeTypingIndicator();
+                    addMessage('agent', `❌ Error: ${data.error}`);
+                } else if (data.type === 'typing') {
+                    addTypingIndicator();
+                } else if (data.type === 'reset_confirm') {
+                    clearMessages();
+                    addMessage('agent', 'Conversation reset. How can I help you?');
+                }
+            };
+        }
+
+        function addMessage(sender, content) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}-message`;
+            
+            if (sender === 'user') {
+                messageDiv.innerHTML = `<strong>👤 You:</strong> ${content}`;
+            } else {
+                // Format agent responses
+                const formattedContent = formatAgentResponse(content);
+                messageDiv.innerHTML = `<strong>🤖 Agent:</strong> ${formattedContent}`;
+            }
+            
+            messages.appendChild(messageDiv);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        function formatAgentResponse(content) {
+            // Convert code blocks and preserve formatting
+            let formatted = content
+                .replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+                .replace(/`([^`]+)`/g, '<code>$1</code>')
+                .replace(/\n/g, '<br>');
+            
+            return formatted;
+        }
+
+        function addTypingIndicator() {
+            removeTypingIndicator(); // Remove existing indicator
+            
+            const typingDiv = document.createElement('div');
+            typingDiv.className = 'message typing-indicator';
+            typingDiv.id = 'typing-indicator';
+            typingDiv.innerHTML = '<strong>🤖 Agent:</strong> <em>Analyzing and investigating...</em>';
+            
+            messages.appendChild(typingDiv);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        function removeTypingIndicator() {
+            const indicator = document.getElementById('typing-indicator');
+            if (indicator) {
+                indicator.remove();
+            }
+        }
+
+        function sendQuery() {
+            const query = queryInput.value.trim();
+            const namespace = namespaceInput.value.trim() || 'default';
+            
+            if (!query) return;
+            
+            addMessage('user', query);
+            
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'query',
+                    query: query,
+                    namespace: namespace
+                }));
+            }
+            
+            queryInput.value = '';
+        }
+
+        function resetChat() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'reset'
+                }));
+            }
+        }
+
+        function clearMessages() {
+            const agentMessages = messages.querySelectorAll('.message:not(.agent-message:first-child)');
+            agentMessages.forEach(msg => msg.remove());
+        }
+
+        function setQuery(query) {
+            queryInput.value = query;
+            queryInput.focus();
+        }
+
+        // Event listeners
+        sendBtn.addEventListener('click', sendQuery);
+        resetBtn.addEventListener('click', resetChat);
+
+        queryInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendQuery();
+            }
+        });
+
+        // Initialize WebSocket connection
+        connectWebSocket();
+    </script>
+</body>
+</html>

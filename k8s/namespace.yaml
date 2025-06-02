@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: k8sagent
+  labels:
+    name: k8sagent
+    app.kubernetes.io/name: k8sagent
+    app.kubernetes.io/part-of: k8sagent 
