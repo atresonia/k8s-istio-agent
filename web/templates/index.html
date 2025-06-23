@@ -250,9 +250,8 @@
 
             <div class="input-container">
                 <div class="input-group">
-                    <input type="text" id="namespace" class="namespace-input" placeholder="Namespace" value="default">
                     <textarea id="queryInput" class="query-input" 
-                             placeholder="Describe your issue... (e.g., 'My pods are not starting in the frontend namespace')"></textarea>
+                             placeholder="Describe your issue... (e.g., 'My pods are not starting in the frontend namespace' or 'Service issues in backend')"></textarea>
                 </div>
                 <div class="button-group">
                     <button id="sendBtn" class="btn btn-primary">Send Query</button>
@@ -263,20 +262,23 @@
 
         <div class="examples">
             <h3>💡 Example Queries</h3>
-            <div class="example-query" onclick="setQuery('My pods are not starting')">
-                "My pods are not starting"
+            <div class="example-query" onclick="setQuery('My pods are not starting in the frontend namespace')">
+                "My pods are not starting in the frontend namespace"
             </div>
-            <div class="example-query" onclick="setQuery('Service connectivity issues between microservices')">
-                "Service connectivity issues between microservices"
+            <div class="example-query" onclick="setQuery('Service connectivity issues between microservices in the backend namespace')">
+                "Service connectivity issues between microservices in the backend namespace"
             </div>
-            <div class="example-query" onclick="setQuery('Istio proxy shows configuration errors')">
-                "Istio proxy shows configuration errors"
+            <div class="example-query" onclick="setQuery('Istio proxy shows configuration errors in istio-system')">
+                "Istio proxy shows configuration errors in istio-system"
             </div>
             <div class="example-query" onclick="setQuery('High memory usage on worker nodes')">
                 "High memory usage on worker nodes"
             </div>
-            <div class="example-query" onclick="setQuery('Check if all services are running properly')">
-                "Check if all services are running properly"
+            <div class="example-query" onclick="setQuery('Check if all services are running properly in the production namespace')">
+                "Check if all services are running properly in the production namespace"
+            </div>
+            <div class="example-query" onclick="setQuery('Deployments failing in the api namespace')">
+                "Deployments failing in the api namespace"
             </div>
         </div>
     </div>
@@ -285,7 +287,6 @@
         let ws = null;
         const messages = document.getElementById('messages');
         const queryInput = document.getElementById('queryInput');
-        const namespaceInput = document.getElementById('namespace');
         const sendBtn = document.getElementById('sendBtn');
         const resetBtn = document.getElementById('resetBtn');
         const status = document.getElementById('status');
@@ -382,7 +383,6 @@
 
         function sendQuery() {
             const query = queryInput.value.trim();
-            const namespace = namespaceInput.value.trim() || 'default';
             
             if (!query) return;
             
@@ -391,8 +391,7 @@
             if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({
                     type: 'query',
-                    query: query,
-                    namespace: namespace
+                    query: query
                 }));
             }
             

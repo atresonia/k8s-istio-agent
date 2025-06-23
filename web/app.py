@@ -26,12 +26,11 @@ logger = logging.getLogger(__name__)
 # Pydantic models for API
 class QueryRequest(BaseModel):
     query: str
-    namespace: str = "default"
 
 class QueryResponse(BaseModel):
     success: bool
     response: str
-    error: str = None
+    error: str = ""
 
 # Global agent instance
 agent_controller = None
@@ -85,7 +84,6 @@ def create_app(config_path: str = "config.yaml") -> FastAPI:
             
             response = await agent_controller.process_query(
                 request.query, 
-                request.namespace
             )
             
             return QueryResponse(
@@ -151,7 +149,6 @@ def create_app(config_path: str = "config.yaml") -> FastAPI:
                 if message_data["type"] == "query":
                     # Process query
                     query = message_data["query"]
-                    namespace = message_data.get("namespace", "default")
                     
                     if agent_controller:
                         # Send typing indicator
@@ -161,7 +158,7 @@ def create_app(config_path: str = "config.yaml") -> FastAPI:
                         }))
                         
                         try:
-                            response = await agent_controller.process_query(query, namespace)
+                            response = await agent_controller.process_query(query)
                             
                             await websocket.send_text(json.dumps({
                                 "type": "response",

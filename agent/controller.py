@@ -19,7 +19,6 @@ class ConversationContext:
     user_query: str
     symptoms: List[str]
     cluster_info: Dict[str, Any]
-    namespace: str
     suspected_components: List[str]
     investigation_steps: List[str]
 
@@ -71,6 +70,22 @@ TOOL USAGE GUIDELINES:
 - Use Istio tools for service mesh related problems
 - Always verify your findings with multiple data points
 
+NAMESPACE HANDLING:
+- **IMPORTANT**: When the user mentions a specific namespace, use it in your kubectl commands
+- Examples: 
+  - "pods in frontend namespace" → use "kubectl get pods -n frontend"
+  - "services in backend" → use "kubectl get services -n backend"
+  - "istio-system issues" → use "kubectl get pods -n istio-system"
+- If no namespace is specified, use -A flag to check all namespaces
+- For cluster-wide resources (nodes, namespaces), don't specify namespace
+- Be specific about which namespace you're investigating
+
+COMMAND CONSTRUCTION:
+- Always construct the most specific command possible based on user input
+- If user mentions a resource type and namespace, combine them: "kubectl get <resource> -n <namespace>"
+- For cross-namespace issues, start with the mentioned namespace, then expand if needed
+- Use descriptive commands that match the user's problem description
+
 RESPONSE FORMAT:
 When using tools, explain:
 - Why you're using each tool
@@ -80,7 +95,7 @@ When using tools, explain:
 
 Be concise but thorough. Focus on actionable insights."""
 
-    async def process_query(self, user_input: str, namespace: str = "default") -> str:
+    async def process_query(self, user_input: str) -> str:
         """Process user query and return response"""
         logger.info(f"Processing query: {user_input[:100]}...")
         
@@ -99,7 +114,6 @@ Be concise but thorough. Focus on actionable insights."""
                 user_query=user_input,
                 symptoms=[],
                 cluster_info={},
-                namespace=namespace,
                 suspected_components=[],
                 investigation_steps=[]
             )
@@ -116,7 +130,7 @@ Be concise but thorough. Focus on actionable insights."""
                 response = await self.llm.chat_completion(messages)
                 
                 # Check if LLM wants to use tools
-                tool_calls = self._extract_tool_calls(response.content)
+                tool_calls = self._extract_tool_calls_intelligent(response.content, user_input)
                 logger.debug(f"Tool calls: {tool_calls}")
                 
                 if tool_calls:
@@ -169,7 +183,7 @@ Be concise but thorough. Focus on actionable insights."""
                 command = line[8:].strip()  # Remove 'kubectl '
                 tool_calls.append({
                     "tool": "kubectl",
-                    "parameters": {"command": command, "namespace": self.context.namespace}
+                    "parameters": {"command": command}
                 })
             
             elif line.startswith('istio '):
@@ -192,19 +206,142 @@ Be concise but thorough. Focus on actionable insights."""
                     if "pods" in line.lower():
                         tool_calls.append({
                             "tool": "kubectl",
-                            "parameters": {"command": "get pods", "namespace": self.context.namespace}
+                            "parameters": {"command": "get pods -A"}
                         })
                     elif "services" in line.lower():
                         tool_calls.append({
                             "tool": "kubectl",
-                            "parameters": {"command": "get services", "namespace": self.context.namespace}
+                            "parameters": {"command": "get services -A"}
                         })
         
         # If no explicit tool calls found but should investigate, add default investigation
         if not tool_calls and self._should_start_investigation(llm_response):
             tool_calls.append({
                 "tool": "kubectl",
-                "parameters": {"command": "get pods", "namespace": self.context.namespace}
+                "parameters": {"command": "get pods -A"}
+            })
+        
+        return tool_calls
+    
+    def _extract_namespace_from_user_input(self, user_input: str) -> str:
+        """Extract namespace information from user input"""
+        user_input_lower = user_input.lower()
+        
+        # Common namespace patterns
+        namespace_patterns = [
+            r'in the (\w+) namespace',
+            r'in (\w+) namespace',
+            r'namespace (\w+)',
+            r'(\w+) namespace',
+            r'(\w+)/',  # format like "namespace/resource"
+        ]
+        
+        import re
+        for pattern in namespace_patterns:
+            match = re.search(pattern, user_input_lower)
+            if match:
+                namespace = match.group(1)
+                # Filter out common words that aren't namespaces
+                if namespace not in ['the', 'a', 'an', 'this', 'that', 'my', 'your']:
+                    return namespace
+        
+        # Check for specific namespace mentions
+        common_namespaces = [
+            'default', 'kube-system', 'istio-system', 'kube-public', 'kube-node-lease',
+            'frontend', 'backend', 'api', 'database', 'monitoring', 'logging',
+            'production', 'staging', 'development', 'dev', 'prod', 'test'
+        ]
+        
+        for ns in common_namespaces:
+            if ns in user_input_lower:
+                return ns
+        
+        return ""  # No specific namespace found
+    
+    def _build_kubectl_command(self, resource_type: str, user_input: str, action: str = "get") -> str:
+        """Build intelligent kubectl command based on user input"""
+        namespace = self._extract_namespace_from_user_input(user_input)
+        
+        if namespace:
+            return f"{action} {resource_type} -n {namespace}"
+        else:
+            # If no specific namespace mentioned, use -A to check all namespaces
+            return f"{action} {resource_type} -A"
+    
+    def _extract_tool_calls_intelligent(self, llm_response: str, user_input: str) -> List[Dict[str, Any]]:
+        """Extract tool calls with intelligent namespace handling"""
+        tool_calls = []
+        
+        # Simple pattern matching for tool calls
+        lines = llm_response.split('\n')
+        
+        for line in lines:
+            line = line.strip()
+            logger.debug(f"extract_tool_calls line: {line}")
+            
+            # Look for explicit kubectl commands
+            if line.startswith('kubectl '):
+                command = line[8:].strip()  # Remove 'kubectl '
+                tool_calls.append({
+                    "tool": "kubectl",
+                    "parameters": {"command": command}
+                })
+            
+            elif line.startswith('istio '):
+                # Parse istio commands like "istio proxy_status"
+                parts = line[6:].strip().split(' ', 1)
+                action = parts[0]
+                params = {"action": action}
+                if len(parts) > 1:
+                    # Additional parameters
+                    params.update({"service": parts[1]})
+                tool_calls.append({
+                    "tool": "istio",
+                    "parameters": params
+                })
+            
+            # Pattern: "Let me check [description] using [tool]"
+            elif "let me check" in line.lower() and "using" in line.lower():
+                if "kubectl" in line.lower():
+                    # Extract resource type from context
+                    if "pods" in line.lower():
+                        command = self._build_kubectl_command("pods", user_input)
+                        tool_calls.append({
+                            "tool": "kubectl",
+                            "parameters": {"command": command}
+                        })
+                    elif "services" in line.lower():
+                        command = self._build_kubectl_command("services", user_input)
+                        tool_calls.append({
+                            "tool": "kubectl",
+                            "parameters": {"command": command}
+                        })
+                    elif "deployments" in line.lower() or "deploy" in line.lower():
+                        command = self._build_kubectl_command("deployments", user_input)
+                        tool_calls.append({
+                            "tool": "kubectl",
+                            "parameters": {"command": command}
+                        })
+                    elif "nodes" in line.lower():
+                        # Nodes are cluster-wide, no namespace needed
+                        tool_calls.append({
+                            "tool": "kubectl",
+                            "parameters": {"command": "get nodes"}
+                        })
+                    elif "namespaces" in line.lower() or "namespace" in line.lower():
+                        # Namespaces are cluster-wide, no namespace needed
+                        tool_calls.append({
+                            "tool": "kubectl",
+                            "parameters": {"command": "get namespaces"}
+                        })
+        
+        # If no explicit tool calls found but should investigate, add intelligent default
+        if not tool_calls and self._should_start_investigation(llm_response):
+            # Start with pods in the relevant namespace
+            command = self._build_kubectl_command("pods", user_input)
+            tool_calls.append({
+                "tool": "kubectl",
+                "parameters": {"command": command}
             })
         
         return tool_calls

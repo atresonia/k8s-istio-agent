@@ -1,30 +1,15 @@
+# use the ollama model
 llm:
-  provider: "huggingface"
+  provider: "ollama"
   config:
-    model_name: "gpt2"
-    device: "cpu"
-    torch_dtype: "float32" 
-    max_new_tokens: 40
-    temperature: 0.3  # Lower temp for more focused responses
-    do_sample: false  # Deterministic for better instruction following
-    context_window: 1024
-
-kubernetes:
-  namespace: "default"
-
-istio:
-  namespace: "istio-system"
-
-tools:
-  enabled:
-    - kubectl
-    - istio_proxy
-    - istio_config
-    - logs
+    model: "mistral:instruct"
+    temperature: 0.3
+    max_tokens: 1000
+    top_p: 0.9
+    context_window: 4096
+    do_sample: true
+    top_k: 0
 
 logging:
   level: "DEBUG"
 
-agent:
-  max_iterations: 10
-  conversation_memory: 5

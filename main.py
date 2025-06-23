@@ -39,9 +39,7 @@ def load_config(config_path: str) -> Dict[str, Any]:
                     "temperature": 0.7
                 }
             },
-            "kubernetes": {
-                "namespace": "default"
-            },
+            "kubernetes": {},
             "logging": {
                 "level": "INFO"
             },
@@ -74,10 +72,9 @@ def setup_logging(config: Dict[str, Any]):
 class TroubleshootingAgent:
     """Main application class"""
     
-    def __init__(self, config_path: str = "config.yaml", namespace: str = "default"):
+    def __init__(self, config_path: str = "config.yaml"):
         self.config = load_config(config_path)
         setup_logging(self.config)
-        self.namespace = namespace
         # Initialize components
         self._init_llm_provider()
         self._init_tools()
@@ -137,12 +134,12 @@ class TroubleshootingAgent:
             "• Service connectivity issues\n"
             "• Istio service mesh configuration\n"
             "• Resource constraints and performance\n\n"
-            "[dim]Type 'exit' to quit, 'reset' to start fresh, 'help' for commands[/dim]",
+            "[dim]Type 'exit' to quit, 'reset' to start fresh, 'help' for commands[/dim]\n"
+            "[dim]I intelligently handle namespaces - just mention them in your query![/dim]",
             title="Welcome"
         ))
         
-        namespace = self.config.get("kubernetes", {}).get("namespace", "default")
-        console.print(f"[dim]Default namespace: {namespace}[/dim]\n")
+        console.print("\n")
         
         while True:
             try:
@@ -159,10 +156,6 @@ class TroubleshootingAgent:
                 elif user_input.lower() == 'help':
                     self._show_help()
                     continue
-                elif user_input.lower().startswith('namespace '):
-                    namespace = user_input[10:].strip()
-                    console.print(f"[yellow]Switched to namespace: {namespace}[/yellow]")
-                    continue
                 elif not user_input.strip():
                     continue
                 
@@ -170,7 +163,7 @@ class TroubleshootingAgent:
                 console.print("\n[dim]🔍 Analyzing your issue...[/dim]")
                 
                 with console.status("[bold green]Investigating..."):
-                    response = await self.agent.process_query(user_input, namespace)
+                    response = await self.agent.process_query(user_input)
                 
                 # Display response
                 console.print("\n" + "="*80)
@@ -183,9 +176,9 @@ class TroubleshootingAgent:
                 console.print(f"[red]Error: {e}[/red]")
                 logger.exception("Unexpected error in interactive mode")
     
-    async def run_single_query(self, query: str, namespace: str = "default") -> str:
+    async def run_single_query(self, query: str) -> str:
         """Run a single query and return response"""
-        return await self.agent.process_query(query, namespace)
+        return await self.agent.process_query(query)
     
     def _show_help(self):
         """Show help information"""
@@ -193,19 +186,28 @@ class TroubleshootingAgent:
 [bold]Available Commands:[/bold]
 • [green]exit[/green] - Quit the application
 • [green]reset[/green] - Reset conversation history
-• [green]namespace <name>[/green] - Switch default namespace
 • [green]help[/green] - Show this help
 
 [bold]Example Queries:[/bold]
 • "My pods are not starting in the frontend namespace"
-• "Service connectivity issues between microservices"
-• "Istio proxy shows configuration errors"
-• "High memory usage on worker nodes"
-• "Check if all services are running properly"
+• "Service connectivity issues between microservices in the backend namespace"
+• "Istio proxy shows configuration errors in istio-system"
+• "High memory usage on worker nodes across all namespaces"
+• "Check if all services are running properly in the production namespace"
+
+[bold]Intelligent Namespace Handling:[/bold]
+• Simply mention the namespace in your query: "pods in frontend namespace"
+• I'll automatically construct the right kubectl commands with the correct namespace
+• Examples:
+  - "pods in frontend" → kubectl get pods -n frontend
+  - "services in backend" → kubectl get services -n backend
+  - "deployments in production" → kubectl get deployments -n production
+• If no namespace is mentioned, I'll check all namespaces with -A flag
+• For cluster-wide resources (nodes, namespaces), I'll use the appropriate commands
 
 [bold]Tips:[/bold]
 • Be specific about symptoms and affected resources
-• Mention the namespace if different from default
+• Mention the namespace if you know it - I'll use it intelligently
 • Include error messages you've observed
 • I'll use kubectl and istio tools to investigate systematically
         """
@@ -225,16 +227,13 @@ def cli(ctx, config, debug):
         logging.getLogger().setLevel(logging.DEBUG)
 
 @cli.command()
-@click.option('--namespace', default='default', help='Kubernetes namespace')
 @click.option('--config', help='Override configuration file path')
 @click.pass_context
-def interactive(ctx, namespace, config):
+def interactive(ctx, config):
     """Run interactive troubleshooting session"""
     try:
         config_path = config or ctx.obj['config']
-        ns = namespace or ctx.obj['namespace']
-        agent = TroubleshootingAgent(config_path, ns)
-        agent.namespace = namespace
+        agent = TroubleshootingAgent(config_path)
         asyncio.run(agent.run_interactive())
     except KeyboardInterrupt:
         console.print("\n[yellow]Goodbye! 👋[/yellow]")
@@ -244,15 +243,14 @@ def interactive(ctx, namespace, config):
 
 @cli.command()
 @click.argument('query')
-@click.option('--namespace', default='default', help='Kubernetes namespace')
 @click.option('--config', help='Override configuration file path')
 @click.pass_context
-def query(ctx, query, namespace, config):
+def query(ctx, query, config):
     """Run a single troubleshooting query"""
     try:
         config_path = config or ctx.obj['config']
         agent = TroubleshootingAgent(config_path)
-        response = asyncio.run(agent.run_single_query(query, namespace))
+        response = asyncio.run(agent.run_single_query(query))
         console.print(response)
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")

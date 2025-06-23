@@ -34,7 +34,6 @@ kubernetes:
   # Leave empty to use default kubeconfig
   config_file: ""
   context: ""
-  namespace: "default"
 
 istio:
   namespace: "istio-system"

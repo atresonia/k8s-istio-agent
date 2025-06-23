@@ -115,6 +115,12 @@ def _auto_register_providers():
         LLMFactory.register_provider("internal", InternalProvider)
     except ImportError:
         logger.warning("Internal provider not available")
+    
+    try:
+        from .providers.ollama_provider import OllamaProvider
+        LLMFactory.register_provider("ollama", OllamaProvider)
+    except ImportError:
+        logger.warning("Ollama provider not available")
 
 # Register providers on module import
 _auto_register_providers()

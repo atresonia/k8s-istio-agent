@@ -2,6 +2,12 @@
 
 A clean, enterprise-ready AI agent for troubleshooting Kubernetes and Istio issues. Designed to be LLM-agnostic and work with your internal infrastructure.
 
+## 📚 Documentation
+
+- **[Contributing Guide](CONTRIBUTING.md)** – How to contribute to the project
+- **[Changelog](CHANGELOG.md)** – Version history and release notes
+- **[Local Setup & Examples](local_setup/)** – Example configs and scripts for running with HuggingFace and other LLMs locally
+
 ## 🚀 Quick Start
 
 ### 1. Installation
