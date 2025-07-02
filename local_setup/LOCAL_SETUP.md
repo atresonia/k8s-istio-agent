@@ -32,6 +32,8 @@ pip install -r requirements.txt
 ```
 
 ### 2. Check System Compatibility
+Note these steps are only for generating the HuggingFace configuration and checking system compatibility.
+If you want to use another model, you can skip this step.
 ```bash
 # Check if your system can run HuggingFace models
 python huggingface_example.py --check
@@ -69,7 +71,20 @@ llm:
     temperature: 0.7
 ```
 
-### 4. Test the Agent
+#### Note: Using a different model?
+If you want to use a different model, you can skip the above step and create your own
+configuration file. Make sure to adjust the `model_name`, `device`, and quantization settings as needed.
+For example, the base [config_hf_quantized.yaml](../config_hf_quantized.yaml) is set up to use ollama's mistral:instruct model.
+I found that this model works well for asking Kubernetes questions, but you can change it to any other model that you prefer.
+##### Ollama Setup
+```bash
+# Install [Ollama](https://github.com/ollama/ollama) (if not already installed)
+brew install ollama
+# Start the Ollama server
+ollama serve
+# In a separate terminal:
+# 1. Pull the Mistral model
+ollama pull mistral:instruct
 ```bash
 # Start interactive mode
 python main.py interactive --config config_hf_quantized.yaml
@@ -283,8 +298,27 @@ k8s-istio-agent/
 ### Ready for Kubernetes Integration
 ```bash
 # Test with local cluster
-minikube start
-kubectl apply -f k8s/rbac.yaml
+k3d create cluster --name k8s-istio-agent
+# create namespaces
+k create namespace reviews
+k create namespace productpage
+k create namespace details
+k create namespace ratings
+# label the namespaces for Istio injection
+k label ns reviews istio-injection=enabled
+k label ns productpage istio-injection=enabled
+k label ns details istio-injection=enabled
+k label ns ratings istio-injection=enabled
+# install Istio
+istioctl install --set profile=demo -y
+# create dummy services
+k apply -f cluster_setup/bookinfo.yaml
+# or if you want to apply each service individually
+k apply -f cluster_setup/bookinfo.yaml -l app=reviews -n reviews
+k apply -f cluster_setup/bookinfo.yaml -l app=productpage -n productpage
+k apply -f cluster_setup/bookinfo.yaml -l app=details -n details
+k apply -f cluster_setup/bookinfo.yaml -l app=ratings -n ratings
+# Start agent with Kubernetes integration
 python main.py interactive --config config_hf_quantized.yaml
 ```
 
