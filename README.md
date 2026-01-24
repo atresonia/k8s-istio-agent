@@ -2,13 +2,13 @@
 
 A clean, enterprise-ready AI agent for troubleshooting Kubernetes and Istio issues. Designed to be LLM-agnostic and work with your internal infrastructure.
 
-## 📚 Documentation
+## Documentation
 
 - **[Contributing Guide](CONTRIBUTING.md)** – How to contribute to the project
 - **[Changelog](CHANGELOG.md)** – Version history and release notes
 - **[Local Setup & Examples](local_setup/)** – Example configs and scripts for running with HuggingFace and other LLMs locally
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Installation
 
@@ -42,7 +42,7 @@ python main.py query "My pods are not starting"
 python main.py web
 ```
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 ┌─────────────────────────────────────────┐
@@ -76,7 +76,7 @@ python main.py web
 └─────────────────────────────────────────┘
 ```
 
-## 🔧 LLM Provider Support
+## LLM Provider Support
 
 ### HuggingFace (Local Models)
 ```yaml
@@ -172,7 +172,7 @@ prometheus query 'istio_request_total{destination_service_name="backend"}'
 💡 Recommendation: Restart affected pods to refresh Envoy configuration
 ```
 
-## 🚀 Deployment Options
+## Deployment Options
 
 ### Option 1: Local Development
 ```bash
@@ -195,7 +195,7 @@ az container create \
   --environment-variables LLM_API_KEY=$API_KEY
 ```
 
-## 🔐 Security Features
+## Security Features
 
 - **RBAC**: Minimal required permissions
 - **Read-only Operations**: No destructive commands
@@ -222,7 +222,7 @@ agent.process_query(user_query)
 # - Recommends scaling strategies
 ```
 
-## 🎯 Key Advantages
+## Key Advantages
 
 ### vs. kagent
 - ✅ **No Autogen Dependency**: Clean, purpose-built architecture
@@ -282,7 +282,7 @@ k8s-istio-agent/
 
 ```
 
-## 🔧 Configuration Examples
+## Configuration Examples
 
 ### Lightweight (CPU-only)
 ```yaml
@@ -313,7 +313,7 @@ llm:
     api_key: "${COMPANY_LLM_KEY}"
 ```
 
-## 🚀 Azure POC Setup
+## Azure POC Setup
 
 ### 1. Create AKS Cluster
 ```bash
@@ -342,7 +342,7 @@ kubectl port-forward svc/k8s-istio-agent 8080:80 -n troubleshooting
 # Open http://localhost:8080
 ```
 
-## 🤝 Contributing
+## Contributing
 
 1. **Add New Tools**: Extend `tools/` directory
 2. **New LLM Providers**: Add to `llm/providers/`
